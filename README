@@ -1,0 +1,63 @@
+Norm
+====
+Norm is a stupidly simple "ORM" wrapper around MySQLdb. Or, that's the 
+marketing pitch. Really, it's a few lines of code I wrote recently and I 
+decided what the heck, I'll toss it up on GitHub so I have a place to 
+keep throwing updates. If it is at /all/ interesting, feel free to pitch 
+patches, criticism, or clever insults my direction.
+
+Norm is licensed under the Apache Licence, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0.html).
+
+Requirements:
+=============
+* Python 2.5+
+* MySQLdb
+
+Installation:
+=============
+
+    python setup.py build
+    sudo python setup.py install
+
+Usage:
+======
+You can see a few test calls in the test.py folder, but basically, it
+goes like this:
+
+    from Norm.model import Model
+    from Norm.fields import *
+    from Norm.connection import connection
+
+    class Company(Model):
+        id = PrimaryField()
+        name = UnicodeField()
+
+    class Person(Model):
+        id = PrimaryField()
+        name = UnicodeField()
+        company = ReferenceField(Company)    
+
+    connection.connect('mysql://test:test@localhost/test', verbose=True)
+
+    Company.create_table()
+    corp = Company(name='Awesome Corp')
+    corp.save()
+
+    Person.create_table()
+    joe = Person()
+    joe.name = 'Joe Weatherston'
+    joe.company = corp
+    joe.save()
+    
+    company = joe.company
+    company.name = 'New Company Name!'
+    company.save()
+    
+    todd = Person.fetch_one({'name':'Todd'})
+
+...or at least, that's the idea. It's baby, baby code, so don't be too
+critical. I just needed something simple to throw together an idea I had, 
+and this fit the bill. There are a billion things I need to do with it, 
+but again, any ideas are helpful. Although there are hundreds of alternate 
+ORMs that would certainly be more worth your time. :)
