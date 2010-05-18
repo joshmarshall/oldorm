@@ -171,7 +171,7 @@ class Model(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        sql = u'DROP TABLE %s' % cls._table()
+        sql = u'DROP TABLE IF EXISTS %s' % cls._table()
         cursor = connection.execute(sql)
         
     def save(self):
