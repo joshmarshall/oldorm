@@ -27,6 +27,7 @@ class City(Model):
     id = PrimaryField()
     name = UnicodeField()
     state = ReferenceField(State)
+    landlocked = BoolField()
     
 class Person(Model):
     id = PrimaryField()
@@ -34,13 +35,17 @@ class Person(Model):
     city = ReferenceField(City, null=True)
     created = CreatedField()
     updated = TimestampField()
+    address = JSONField(null=True)
+    age = IntField()
+    wage = FloatField()
 
 state = State(name=u'Texas')
 city = City(name=u'Austin')
 
 def run_test(func):
-    print 'Starting Task %s' % func.__name__
-    print '============='
+    start_message = 'Starting Task %s' % func.__name__
+    print start_message
+    print '='*len(start_message)
     start = time.time()
     func()
     end = time.time()
@@ -59,16 +64,30 @@ def add_city():
     
 def add_user():
     wilbur = Person(name=u'Wilbur', city=city)
+    wilbur.age = 21
+    wilbur.wage = 9.46
+    wilbur.address = {
+        'address':'200 W. Main', 
+        'city':'Austin', 
+        'state':'Texas'
+    }
     wilbur.save()
     
 def add_users():
     for i in range(2000):
         user = Person(name=u'JOHNDOE', city=city)
+        user.address = {
+            'address':'200 W. Main', 
+            'city':'Austin', 
+            'state':'Texas'
+        }
         user.save()
+    print '%s user(s) added.' % (i+1)
 
 def get_user():
     wilbur = Person.fetch_one({'name':u'Wilbur'})
-    print 'Name: %s' % wilbur.name
+    for f in Person.fields():
+        print '%s: %s' % (f, getattr(wilbur, f))
     
 def get_users():
     people = Person.fetch()
@@ -90,9 +109,9 @@ def delete_tables():
 def test(verbose=False):  
     connection.connect('mysql://test:test@localhost/test', verbose=verbose)
     for test in [
-        create_tables, add_user, add_users,
-        get_user, get_users, update_user,
-        delete_tables
+        create_tables, add_city, add_user,
+        add_users, get_user, get_users, 
+        update_user, delete_tables
     ]:
         run_test(test)
     print 'Finished running tests.'

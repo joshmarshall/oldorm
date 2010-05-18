@@ -73,3 +73,6 @@ class Connection(object):
         
 """ The connection singleton. """        
 connection = Connection()
+
+""" The connect function """
+connect = connection.connect

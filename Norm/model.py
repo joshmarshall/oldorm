@@ -21,8 +21,8 @@ class Model(object):
         It then ensures that each Model instance has its own
         Fields for values.
         """
-        assert self.__class__._primary() != None
-        for field in self._fields():
+        assert self.__class__.primary() != None
+        for field in self.fields():
             f = object.__getattribute__(self, field)
             instance = f.__class__(*f.args, **f.kwargs)
             instance.model = self
@@ -48,7 +48,7 @@ class Model(object):
         where = u''
         if issubclass(type(limits), Model):
             llist = []
-            for k in limits.__class__._fields():
+            for k in limits.__class__.fields():
                 attr = object.__getattribute__(limits, k)
                 if issubclass(type(attr), ReferenceField):
                     continue
@@ -60,14 +60,14 @@ class Model(object):
                 del limits[k]
                 continue
             attr = object.__getattribute__(cls, k)
-            attr.set_value(limits[k])
+            attr.value = limits[k]
             limits[k] = attr
         clauses = [u'%s = %s' % (k,limits[k].format) for k in limits.keys()]
         if len(clauses) > 0:
             where = u' WHERE %s' % (u' AND '.join(clauses))
         
         values = tuple([v._value for v in limits.values()])
-        fields = cls._fields()
+        fields = cls.fields()
           
         sql = u"SELECT %s FROM %s%s;" % \
             (u', '.join(fields), cls._table(), where)
@@ -120,12 +120,12 @@ class Model(object):
         except AttributeError:
             attr = None
         if issubclass(attr.__class__, Field):
-            attr.set_value(val)
+            attr.value = val
         else:
             return object.__setattr__(self, attr_k, val)
             
     @classmethod
-    def _fields(cls):
+    def fields(cls):
         """
         A class method that returns all the attributes which
         are Fields. Sort of kludgy, needs to be cached somewhere.
@@ -156,7 +156,7 @@ class Model(object):
             raise Exception('Not connected to the database.')
         sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls._table()
         rows = []
-        for f in cls._fields():
+        for f in cls.fields():
             field = object.__getattribute__(cls, f)
             params = field.create_syntax()
             row = u'\t%s %s' % (f, params)
@@ -192,14 +192,14 @@ class Model(object):
         """
         sets = []
         values = []
-        for f in self._fields():
+        for f in self.fields():
             attr = object.__getattribute__(self, f)
             if attr.auto_value:
                 continue
             sets.append(u'%s = %s' % (f, attr.format))
             values.append(attr._value)
         set_sql = u'SET %s' % u', '.join(sets)
-        primary_k = self.__class__._primary()
+        primary_k = self.__class__.primary()
         primary = object.__getattribute__(self, primary_k)
         where_sql = u'WHERE %s = %d;' % (primary_k, primary.value)
         sql = 'UPDATE %s %s %s;' % (self._table(), set_sql, where_sql)
@@ -213,11 +213,11 @@ class Model(object):
         using that, so I may need to change this in the future.
         """
         sql = u'INSERT INTO %s' % self._table()
-        fields = self._fields()
+        fields = self.fields()
         keys = []
         values = []
         format_values = []
-        for f in self._fields():
+        for f in self.fields():
             attr = object.__getattribute__(self, f)
             if attr.auto_value:
                 continue
@@ -228,27 +228,27 @@ class Model(object):
         values_str = u'VALUES( %s )' % u', '.join(format_values)
         sql = '%s %s %s;' % (sql, keys_str, values_str)
         cursor = connection.execute(sql, values)
-        primary_k = self.__class__._primary()
+        primary_k = self.__class__.primary()
         primary = object.__getattribute__(self, primary_k)
-        primary.set_value(connection.connection.insert_id())
+        primary.value = connection.connection.insert_id()
         
     def delete(self):
         """
         Deletes the object from the MySQL table.
         """
-        primary_k = self.__class__._primary()
+        primary_k = self.__class__.primary()
         primary = object.__getattribute__(self, primary_k)
         sql = u'DELETE FROM %s' % self._table()
         sql += u' WHERE %s=%s LIMIT 1;' % (primary_k, '%s');
         cursor = connection.execute(sql, (primary.value,))
      
     @classmethod   
-    def _primary(cls):
+    def primary(cls):
         """
         Hunts for the PrimaryField in the attributes.
         TODO: Cache this value so it only hunts once.
         """
-        for f in cls._fields():
+        for f in cls.fields():
             attr = object.__getattribute__(cls, f)
             if type(attr) is PrimaryField:
                 return f

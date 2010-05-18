@@ -10,6 +10,29 @@ TODO: Add FloatField, BoolField, etc.
 import types
 import datetime
 import time
+try:
+    import json
+except ImportError:
+    import simpejson as json
+    
+class LateProperty(object):
+    
+    def __init__(self, getter=None, setter=None, deleter=None):
+        self.getter = getter
+        self.setter = setter
+        self.deleter = deleter
+    
+    def __get__(self, inst, owner):
+        if inst != None:
+            return getattr(inst, self.getter.__name__)()
+        else:
+            return getattr(owner, self.getter.__name__)()
+       
+    def __set__(self, inst, value):
+        return getattr(inst, self.setter.__name__)(value)
+        
+    def __del__(self, inst):
+        return getattr(inst, self.deleter.__name__)()
 
 class Field(object):
     """
@@ -32,6 +55,13 @@ class Field(object):
         self.args = args
         self.kwargs = kwargs
         
+    def get_value(self):
+        """
+        This is the getter property so that sub-classes can do
+        other fun things with it.
+        """
+        return self._value
+        
     def set_value(self, value):
         """
         Pretty self-explanatory -- basic type checking.
@@ -43,13 +73,7 @@ class Field(object):
             raise TypeError('Value must be type %s' % self.type)
         self._value = value
         
-    @property
-    def value(self):
-        """
-        This is a property so that sub-classes can do
-        other fun things with it.
-        """
-        return self._value
+    value = LateProperty(get_value, set_value)
         
     def set_model(self, model):
         """
@@ -73,7 +97,6 @@ class UnicodeField(Field):
     short strings, and a TEXT etc. for long strings. It will also
     do length validation.
     """
-    format = u'%s'
     type = types.UnicodeType
     
     def __init__(self, *args, **kwargs):
@@ -86,7 +109,28 @@ class UnicodeField(Field):
             return 'TEXT'
         else:
             return 'TINYTEXT'
-        
+
+class JSONField(UnicodeField):
+    """
+    Extends the UnicodeField to store JSON data -- automatically
+    converts from text -> dict -> text.
+    """
+
+    def set_value(self, value):
+        new_value = u'%s' % json.dumps(value) 
+        return UnicodeField.set_value(self, new_value)
+
+    def get_value(self):
+        value = self._value
+        return json.loads(value)
+
+class FloatField(Field):
+    """
+    The Float Field type
+    """
+    type = types.FloatType
+    field = 'FLOAT'
+
 class IntField(Field):
     """
     The Integer Field type -- pretty simple.
@@ -95,9 +139,13 @@ class IntField(Field):
         self.unsigned = kwargs.get('unsigned')
         Field.__init__(self, **kwargs)
     
-    format = u'%s'
     type = types.LongType
     field = 'INT'
+    
+    def set_value(self, value):
+        if type(value) is types.IntType:
+            value = long(value)
+        Field.set_value(self, value)
     
     def create_syntax(self):
         sql = 'INT'
@@ -112,10 +160,39 @@ class IntField(Field):
         if getattr(self, 'auto_increment', False):
             sql += ' AUTO_INCREMENT'
         return sql
-        
+
+class BoolField(IntField):
+    
+    type = types.BooleanType
+
+    def set_value(self, value):
+        if value is None:
+            if not self.null:
+                raise ValueError('This field does not accept null values.')
+            self._value = None
+        elif value:
+            self._value = 1
+        else:
+            self._value = 0
+
+    def get_value(self):
+        value = self._value
+        if type(value) != types.IntType:
+            value = int(value)
+        if value > 0:
+            return True
+        else:
+            return False
+
+    def create_syntax(self):
+        sql = 'TINYINT(1) UNSIGNED'
+        if not getattr(self, 'null', True):
+            sql += ' NOT NULL'
+        return sql
+
 """ For wordier fellows. """
 IntegerField = IntField
-
+BooleanField = BoolField
 
 class TimestampField(Field):
     """
@@ -126,22 +203,7 @@ class TimestampField(Field):
     auto_value = True
     
     type = datetime.datetime
-    format = u'%s'
     field = 'TIMESTAMP'
-    @property
-    def value(self):
-        if self._value is None:
-            return None
-        return datetime.datetime.fromtimestamp(self._value)
-    
-    def set_value(self, value):
-        if value is None:
-            self._value = None
-            return
-        elif type(value) is not self.type:
-            raise TypeError('Value must be type %s' % self.type)
-        ts = time.mktime([i for i in value.timetuple()])
-        self._value = ts
 
 """ Auto updating field performs like a normal Timestamp. """
 UpdatedField = TimestampField
@@ -185,14 +247,15 @@ class ReferenceField(IntField):
         IntField.__init__(self, *args, **kwargs)
     
     def set_value(self, value):
-        if type(value) is self.ref_model:
-            primary_k = value._primary()
+        if value.__class__ is self.ref_model:
+            primary_k = value.primary()
             primary = object.__getattribute__(value, primary_k)
-            value = primary.value
+            value = primary._value
         IntField.set_value(self, value)
     
-    @property
-    def value(self):
+    def get_value(self):
         model = self.ref_model
-        primary_k = model._primary()
+        primary_k = model.primary()
+        if self._value == None:
+            return None
         return model.fetch_one({primary_k:self._value})
