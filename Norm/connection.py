@@ -70,9 +70,24 @@ class Connection(object):
         cursor = self.connection.cursor()
         cursor.execute(command, values)
         return cursor
+
+    @property
+    def cursor(self):
+        if not self._cursor:
+            self._cursor = self.connection.cursor()
+        return self._cursor
+        
+    def close(self):
+        if self.connection:
+            self.connection.cursor.close()
+            self.connection.close()
         
 """ The connection singleton. """        
 connection = Connection()
 
 """ The connect function """
 connect = connection.connect
+
+""" The cursor function """
+def cursor():
+    return connection.cursor

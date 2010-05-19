@@ -113,17 +113,23 @@ class UnicodeField(Field):
 class JSONField(UnicodeField):
     """
     Extends the UnicodeField to store JSON data -- automatically
-    converts from text -> dict -> text.
+    converts from text -> dict -> text. 
     """
 
     def set_value(self, value):
-        new_value = u'%s' % json.dumps(value) 
-        return UnicodeField.set_value(self, new_value)
+        new_value = json.dumps(value)
+        self._value = unicode(new_value)
 
     def get_value(self):
         value = self._value
-        return json.loads(value)
-
+        """
+        Double decoding because of MySQL escaping??
+        REALLY need to fix this...
+        """
+        obj = json.loads(value)
+        obj = json.loads(obj)
+        return obj
+        
 class FloatField(Field):
     """
     The Float Field type
@@ -167,7 +173,7 @@ class BoolField(IntField):
 
     def set_value(self, value):
         if value is None:
-            if not self.null:
+            if not getattr(self, 'null', True):
                 raise ValueError('This field does not accept null values.')
             self._value = None
         elif value:
@@ -236,7 +242,7 @@ class ReferenceField(IntField):
     """
     This is the auto-loading (hopefully lazy) foreign model 
     field. When the value attribute is referenced, it 
-    calls the fetch_one method on the foreign model.
+    calls the get method on the foreign model.
     """
     def __init__(self, ref_model, *args, **kwargs):
         kwargs['ref_model'] = ref_model
@@ -258,4 +264,4 @@ class ReferenceField(IntField):
         primary_k = model.primary()
         if self._value == None:
             return None
-        return model.fetch_one({primary_k:self._value})
+        return model.get(self._value)

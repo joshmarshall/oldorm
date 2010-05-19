@@ -74,8 +74,8 @@ def add_user():
     wilbur.save()
     
 def add_users():
-    for i in range(2000):
-        user = Person(name=u'JOHNDOE', city=city)
+    for i in range(1, 2001):
+        user = Person(name=u'%d' % i , city=city)
         user.address = {
             'address':'200 W. Main', 
             'city':'Austin', 
@@ -86,11 +86,14 @@ def add_users():
 
 def get_user():
     wilbur = Person.fetch_one({'name':u'Wilbur'})
+    if not wilbur:
+        print 'No result.'
+        return
     for f in Person.fields():
         print '%s: %s' % (f, getattr(wilbur, f))
     
 def get_users():
-    people = Person.fetch()
+    people = Person.all()[5:20]
     i = 0
     for person in people:
         i += 1
@@ -99,6 +102,9 @@ def get_users():
 def update_user():
     wilbur = Person.fetch_one({'name':u'Wilbur'})
     wilbur.name = u'Wilburt'
+    address = wilbur.address
+    address['city'] = 'San Antonio'
+    wilbur.address = address
     wilbur.save()
     
 def delete_tables():
@@ -108,6 +114,7 @@ def delete_tables():
   
 def test(verbose=False):  
     connection.connect('mysql://test:test@localhost/test', verbose=verbose)
+    delete_tables()
     for test in [
         create_tables, add_city, add_user,
         add_users, get_user, get_users, 

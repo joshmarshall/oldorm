@@ -7,6 +7,7 @@ This file contains the Model class.
 
 from fields import Field, PrimaryField, ReferenceField, PrimaryField
 from connection import connection
+from results import Results
 
 class Model(object):
     """
@@ -32,69 +33,44 @@ class Model(object):
             self.__setattr__(key, val)
             
     @classmethod
-    def fetch(cls, limits={}):
+    def where(cls, limiter={}):
         """
-        Grabs a result based on the (optional) limiter dictionary.
-        Example:
-        
-        for entry in Model.fetch({'name':'Pookey'}):
-            print entry.id
-        
-        TODO: Make a ResultList object that takes some of this logic
-        out, and has ordering methods, etc. on it.
+        Wrapper for the Results.where() method
         """
-        if not connection.connected:
-            raise Exception('Not connected to the database.')
-        where = u''
-        if issubclass(type(limits), Model):
-            llist = []
-            for k in limits.__class__.fields():
-                attr = object.__getattribute__(limits, k)
-                if issubclass(type(attr), ReferenceField):
-                    continue
-                llist.append((k, attr.value))
-            limits = dict(llist)
-        for k,val in limits.iteritems():
-            if k.startswith('$'):
-                # $lt, $gt, $inc, etc.
-                del limits[k]
-                continue
-            attr = object.__getattribute__(cls, k)
-            attr.value = limits[k]
-            limits[k] = attr
-        clauses = [u'%s = %s' % (k,limits[k].format) for k in limits.keys()]
-        if len(clauses) > 0:
-            where = u' WHERE %s' % (u' AND '.join(clauses))
-        
-        values = tuple([v._value for v in limits.values()])
-        fields = cls.fields()
-          
-        sql = u"SELECT %s FROM %s%s;" % \
-            (u', '.join(fields), cls._table(), where)
-        
-        cursor = connection.execute(sql, values)
-        result = cursor.fetchone()
-        while result != None:
-            obj = cls()
-            for i in range(len(fields)):
-                attr = object.__getattribute__(obj, fields[i])
-                attr._value = result[i]
-            obj._retrieved = True
-            yield obj
-            result = cursor.fetchone()
+        results = Results(cls)
+        return results.where(limiter)   
+                
+    @classmethod
+    def all(cls):
+        """
+        Gets the Results object for all entries.
+        """
+        return cls.where()
+            
+    @classmethod
+    def __iter__(cls, limiter={}):
+        """
+        Wrapper for the Results.__iter__() method
+        """
+        results = cls.where(limiter)
+        return results.__iter__()
         
     @classmethod
-    def fetch_one(cls, limits=None):
+    def fetch_one(cls, limiter={}):
         """
-        The fetch_one method returns the first result of the
-        fetch() result using the limiter object. It's designed to
-        be used mostly with primary key requests.
+        Wrapper for the Results.fetch_one() method
         """
-        obj = None
-        for result in cls.fetch(limits):
-            obj = result
-            break
-        return obj
+        return cls.where(limiter).fetch_one()
+        
+    @classmethod
+    def get(cls, id_value):
+        """
+        Simple grab for a single primary value
+        """
+        primary = cls.primary()
+        if isinstance(id_value, cls):
+            id_value = getattr(id_value, primary)
+        return cls.fetch_one({ primary: id_value })
         
     def __getattribute__(self, attr_k):
         """
@@ -141,7 +117,7 @@ class Model(object):
         return fields
         
     @classmethod
-    def _table(cls):
+    def table(cls):
         """
         Not really sure why I did this. Will pull it out eventually.
         """
@@ -154,7 +130,7 @@ class Model(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls._table()
+        sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls.table()
         rows = []
         for f in cls.fields():
             field = object.__getattribute__(cls, f)
@@ -171,7 +147,7 @@ class Model(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        sql = u'DROP TABLE IF EXISTS %s' % cls._table()
+        sql = u'DROP TABLE IF EXISTS %s' % cls.table()
         cursor = connection.execute(sql)
         
     def save(self):
@@ -202,7 +178,7 @@ class Model(object):
         primary_k = self.__class__.primary()
         primary = object.__getattribute__(self, primary_k)
         where_sql = u'WHERE %s = %d;' % (primary_k, primary.value)
-        sql = 'UPDATE %s %s %s;' % (self._table(), set_sql, where_sql)
+        sql = 'UPDATE %s %s %s;' % (self.table(), set_sql, where_sql)
         cursor = connection.execute(sql, values)
         
     def insert(self):
@@ -212,7 +188,7 @@ class Model(object):
         a dangerous assumption that the PrimaryField is
         using that, so I may need to change this in the future.
         """
-        sql = u'INSERT INTO %s' % self._table()
+        sql = u'INSERT INTO %s' % self.table()
         fields = self.fields()
         keys = []
         values = []
@@ -238,7 +214,7 @@ class Model(object):
         """
         primary_k = self.__class__.primary()
         primary = object.__getattribute__(self, primary_k)
-        sql = u'DELETE FROM %s' % self._table()
+        sql = u'DELETE FROM %s' % self.table()
         sql += u' WHERE %s=%s LIMIT 1;' % (primary_k, '%s');
         cursor = connection.execute(sql, (primary.value,))
      
