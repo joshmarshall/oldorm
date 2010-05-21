@@ -38,6 +38,7 @@ goes like this:
         name = UnicodeField()
         company = ReferenceField(Company)    
 
+    # Verbose prints out the (unescaped) SQL
     connection.connect('mysql://test:test@localhost/test', verbose=True)
 
     Company.create_table()
@@ -56,8 +57,10 @@ goes like this:
     
     todd = Person.fetch_one({'name':'Todd'})
 
-...or at least, that's the idea. It's baby, baby code, so don't be too
-critical. I just needed something simple to throw together an idea I had, 
-and this fit the bill. There are a billion things I need to do with it, 
-but again, any ideas are helpful. Although there are hundreds of alternate 
-ORMs that would certainly be more worth your time. :)
+...or at least, that's the idea. Check out the test.py file for detailed
+syntax, or run it with '-v' to see the SQL statements.
+
+It's baby, baby code, so don't be too critical. I just needed something simple 
+to throw together an idea I had, and this fit the bill. There are a billion 
+things I need to do with it, but again, any ideas are helpful. Although there 
+are hundreds of alternate ORMs that would certainly be more worth your time. :)
