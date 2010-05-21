@@ -42,6 +42,7 @@ class Person(Model):
 
 state = State(name=u'Texas')
 city = City(name=u'Austin')
+city2 = City(name=u'Houston')
 
 def run_test(func):
     start_message = 'Starting Task %s' % func.__name__
@@ -62,6 +63,8 @@ def add_city():
     state.save()
     city.state = state
     city.save()
+    city2.state = state
+    city2.save()
     
 def add_user():
     wilbur = Person(name=u'Wilbur', city=city)
@@ -104,8 +107,9 @@ def update_user():
     wilbur = Person.fetch_one({'name':u'Wilbur'})
     wilbur.name = u'Wilburt'
     address = wilbur.address
-    address['city'] = 'San Antonio'
+    address['city'] = 'Houston'
     wilbur.address = address
+    wilbur.city = city2
     wilbur.save()
     
 def compare_users():

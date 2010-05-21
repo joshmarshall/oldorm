@@ -29,6 +29,7 @@ class LateProperty(object):
             return getattr(owner, self.getter.__name__)()
        
     def __set__(self, inst, value):
+        inst._updated = True
         return getattr(inst, self.setter.__name__)(value)
         
     def __del__(self, inst):
@@ -44,6 +45,7 @@ class Field(object):
     # Auto value is just a flag right now for IDs and TIMESTAMPS
     auto_value = False
     _value = None
+    _updated = False
     
     def __init__(self, *args, **kwargs):
         """

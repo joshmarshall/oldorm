@@ -196,6 +196,8 @@ class Model(object):
             attr = object.__getattribute__(self, f)
             if attr.auto_value:
                 continue
+            if not attr._updated:
+                continue
             sets.append(u'%s = %s' % (f, attr.format))
             values.append(attr._value)
         set_sql = u'SET %s' % u', '.join(sets)
