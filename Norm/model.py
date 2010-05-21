@@ -8,6 +8,7 @@ This file contains the Model class.
 from fields import Field, PrimaryField, ReferenceField, PrimaryField
 from connection import connection
 from results import Results
+import types
 
 class Model(object):
     """
@@ -132,11 +133,23 @@ class Model(object):
             raise Exception('Not connected to the database.')
         sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls.table()
         rows = []
+        indexes = {}
         for f in cls.fields():
             field = object.__getattribute__(cls, f)
             params = field.create_syntax()
             row = u'\t%s %s' % (f, params)
             rows.append(row)
+            if hasattr(field, 'index') and field.index:
+                indexes[f] = field.index
+        index_strings = []
+        for f,i in indexes.iteritems():
+            if type(i) is types.IntType:
+                index_string = u'%s(%d)' % (f,i)
+            else:
+                index_string = u'%s' % f
+            index_strings.append(index_string)
+        if len(index_strings) > 0:
+            rows.append(u'\tINDEX(%s)' % u', '.join(index_strings))
         sql += u'%s\n);' % u',\n'.join(rows)
         cursor = connection.execute(sql)
         

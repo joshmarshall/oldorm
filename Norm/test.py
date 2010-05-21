@@ -25,18 +25,19 @@ class State(Model):
     
 class City(Model):
     id = PrimaryField()
-    name = UnicodeField()
+    name = UnicodeField(length=300, index=10)
     state = ReferenceField(State)
     landlocked = BoolField()
     
 class Person(Model):
     id = PrimaryField()
-    name = UnicodeField()
+    name = UnicodeField(index=5, length=200)
     city = ReferenceField(City, null=True)
     created = CreatedField()
     updated = TimestampField()
     address = DictField(null=True)
-    age = IntField()
+    email = UnicodeField(length=100, unique=True)
+    age = IntField(index=True)
     wage = FloatField()
 
 state = State(name=u'Texas')

@@ -86,6 +86,8 @@ class Field(object):
         Generates the column definition for the CREATE TABLE step.
         """
         sql = '%s' % self.field
+        if getattr(self, 'unique', False):
+            sql += ' UNIQUE'
         if not getattr(self, 'null', True):
             sql += ' NOT NULL'
         return sql
@@ -105,10 +107,12 @@ class UnicodeField(Field):
         
     @property
     def field(self):
-        if not self.length or self.length > 255:
-            return 'TEXT'
+        if not self.length:
+            return u'TEXT' 
+        elif self.length > 255:
+            return u'TEXT(%d)' % self.length
         else:
-            return 'TINYTEXT'
+            return 'VARCHAR(%d)' % self.length
         
 class DictField(UnicodeField):
     """
@@ -170,6 +174,8 @@ class IntField(Field):
             sql += ' NOT NULL'
         if getattr(self, 'primary', False):
             sql += ' PRIMARY KEY'
+        if getattr(self, 'unique', False):
+            sql += ' UNIQUE'
         #elif getattr(self, 'foreign_key', False):
         #    sql += ' FOREIGN KEY'
         if getattr(self, 'auto_increment', False):
@@ -203,6 +209,8 @@ class BoolField(IntField):
         sql = 'TINYINT(1) UNSIGNED'
         if not getattr(self, 'null', True):
             sql += ' NOT NULL'
+        if getattr(self, 'unique', False):
+            sql += ' UNIQUE'
         return sql
 
 """ For wordier fellows. """
@@ -229,8 +237,10 @@ class CreatedField(TimestampField):
     """
     def create_syntax(self):
         sql = TimestampField.create_syntax(self)
+        if getattr(self, 'unique', False):
+            sql += ' UNIQUE'
         sql += ' DEFAULT NOW()'
-        return sql 
+        return sql
     
 class PrimaryField(IntField):
     """
@@ -245,6 +255,9 @@ class PrimaryField(IntField):
         kwargs['primary'] = True
         kwargs['key'] = True
         kwargs['null'] = False
+        # Keys cannot be / already are indexed.
+        if kwargs.has_key('index'):
+            del kwargs['index']
         IntField.__init__(self, **kwargs)
         
     def set_value(self, value):
