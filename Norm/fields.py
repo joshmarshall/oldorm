@@ -249,17 +249,24 @@ class PrimaryField(IntField):
     This is the Primary Key Field. Right now, one of these should be on
     every model. That may be taken away later if I'm clever enough.
     """
-    auto_value = True
 
     def __init__(self, *args, **kwargs):
-        kwargs['unsigned'] = True
-        kwargs['auto_increment'] = True
-        kwargs['primary'] = True
-        kwargs['key'] = True
-        kwargs['null'] = False
+        kwargs.setdefault('unsigned', True)
+        kwargs.setdefault('auto_increment', True)
+        kwargs.setdefault('primary', True)
+        kwargs.setdefault('key', True)
+        kwargs.setdefault('null', False)
         # Keys cannot be / already are indexed.
         if kwargs.has_key('index'):
             del kwargs['index']
+            
+        """
+        If the key is not an auto_increment key, then
+        we set the auto_value to False so that it is
+        INSERTed and UPDATEd.
+        """
+        self.auto_value = kwargs['auto_increment']
+            
         IntField.__init__(self, **kwargs)
         
     def set_value(self, value):

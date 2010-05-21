@@ -113,10 +113,14 @@ def update_user():
     wilbur.save()
     
 def compare_users():
-    wilbur = Person.fetch_one({'name':u'Wilbur'})
+    wilbur = Person.fetch_one({'name':u'Wilburt'})
     other = Person.fetch_one({'name':u'%s' % 2})
     assert wilbur != other
     assert wilbur == wilbur
+    
+def delete_user():
+    wilbur = Person.fetch_one({'name':u'Wilburt'})
+    wilbur.delete()
     
 def delete_tables():
     Person.drop_table()
@@ -129,7 +133,7 @@ def test(verbose=False):
     for test in [
         create_tables, add_city, add_user,
         add_users, get_user, get_users, 
-        update_user, compare_users,
+        update_user, compare_users, delete_user,
         delete_tables
     ]:
         run_test(test)
