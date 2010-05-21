@@ -65,7 +65,7 @@ class Results(object):
             """ Only auto-reversing primary if nothing else specified """
             if not self.order_fields.has_key(self.model.primary()):
                 """ Putting it in so it will be reversed. """
-                self.order_fields[self.model.primary(), ASCENDING]
+                self.order_fields[self.model.primary()] = ASCENDING
         for k,v in self.order_fields.iteritems():
             if v == ASCENDING:
                 self.order_fields[k] = DESCENDING
@@ -116,8 +116,9 @@ class Results(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        sql = self.get_sql()
-        self.cursor = connection.execute(sql, tuple(self.values))
+        if not hasattr(self, 'cursor'):
+            sql = self.get_sql()
+            self.cursor = connection.execute(sql, tuple(self.values))
         return self
         
     def next(self):
@@ -149,11 +150,10 @@ class Results(object):
         result = self.cursor.fetchone()
         if result == None:
             raise StopIteration
-        obj_dict = dict([
-            (self.fields[i], result[i])
-            for i in range(len(self.fields))
-        ])
-        obj = self.model(**obj_dict)
+        obj = self.model()
+        for i in range(len(self.fields)):
+            object.__getattribute__(obj, self.fields[i])._value = result[i]
+        object.__setattr__(obj, '_retrieved', True)
         self.current_row += 1
         return obj
         
@@ -171,12 +171,14 @@ class Results(object):
             self.slice = key
             return self
         
-    def __len__(self, key):
+    def __len__(self):
         """
         Returns the number of rows from selection. Only works
         if __iter__ has already been called -- may need to 
         patch this.
         """
+        if not hasattr(self, 'cursor'):
+            results = self.__iter__()
         return self.cursor.rowcount
             
     def get_model_limiter(self, instance):

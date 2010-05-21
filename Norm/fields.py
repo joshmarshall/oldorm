@@ -109,26 +109,35 @@ class UnicodeField(Field):
             return 'TEXT'
         else:
             return 'TINYTEXT'
-
-class JSONField(UnicodeField):
+        
+class DictField(UnicodeField):
     """
-    Extends the UnicodeField to store JSON data -- automatically
-    converts from text -> dict -> text. 
+    Stores a Dict in JSON format.
     """
-
+    type = types.DictType
+    
     def set_value(self, value):
-        new_value = json.dumps(value)
-        self._value = unicode(new_value)
-
+        if value == None and not getattr(self, 'null', True):
+            raise TypeError('Column does not allow null values.')
+        elif type(value) != self.type:
+            raise TypeError('Value must be of type %s' % self.type)
+        json_string = json.dumps(value)
+        self._value = json_string
+        
     def get_value(self):
-        value = self._value
-        """
-        Double decoding because of MySQL escaping??
-        REALLY need to fix this...
-        """
-        obj = json.loads(value)
-        obj = json.loads(obj)
+        if self._value == None:
+            return None
+        obj = self._value
+        while type(obj) != self.type:
+            """ Doing this because of MySQL escaping?? """
+            obj = json.loads(obj)
         return obj
+            
+class ListField(DictField):
+    """
+    Stores a List in JSON format.
+    """
+    type = types.ListType
         
 class FloatField(Field):
     """
@@ -237,6 +246,11 @@ class PrimaryField(IntField):
         kwargs['key'] = True
         kwargs['null'] = False
         IntField.__init__(self, **kwargs)
+        
+    def set_value(self, value):
+        if type(value) is types.IntType:
+            value = long(value)
+        return IntField.set_value(self, value)
         
 class ReferenceField(IntField):
     """

@@ -149,6 +149,17 @@ class Model(object):
             raise Exception('Not connected to the database.')
         sql = u'DROP TABLE IF EXISTS %s' % cls.table()
         cursor = connection.execute(sql)
+     
+    @classmethod   
+    def primary(cls):
+        """
+        Hunts for the PrimaryField in the attributes.
+        TODO: Cache this value so it only hunts once.
+        """
+        for f in cls.fields():
+            attr = object.__getattribute__(cls, f)
+            if type(attr) is PrimaryField:
+                return f
         
     def save(self):
         """
@@ -217,14 +228,20 @@ class Model(object):
         sql = u'DELETE FROM %s' % self.table()
         sql += u' WHERE %s=%s LIMIT 1;' % (primary_k, '%s');
         cursor = connection.execute(sql, (primary.value,))
-     
-    @classmethod   
-    def primary(cls):
+        
+    def __eq__(self, other):
         """
-        Hunts for the PrimaryField in the attributes.
-        TODO: Cache this value so it only hunts once.
+        For comparing two objects of the same model
         """
-        for f in cls.fields():
-            attr = object.__getattribute__(cls, f)
-            if type(attr) is PrimaryField:
-                return f
+        if self.__class__ != other.__class__:
+            return False
+        pk = self.__class__.primary()
+        if getattr(self, pk) != getattr(other, pk):
+            return False
+        return True
+        
+    def __ne__(self, other):
+        """
+        Inverse of __eq___
+        """
+        return self.__eq__(other) == False

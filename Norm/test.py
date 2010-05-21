@@ -35,7 +35,7 @@ class Person(Model):
     city = ReferenceField(City, null=True)
     created = CreatedField()
     updated = TimestampField()
-    address = JSONField(null=True)
+    address = DictField(null=True)
     age = IntField()
     wage = FloatField()
 
@@ -107,6 +107,12 @@ def update_user():
     wilbur.address = address
     wilbur.save()
     
+def compare_users():
+    wilbur = Person.fetch_one({'name':u'Wilbur'})
+    other = Person.fetch_one({'name':u'%s' % 2})
+    assert wilbur != other
+    assert wilbur == wilbur
+    
 def delete_tables():
     Person.drop_table()
     State.drop_table()
@@ -118,7 +124,8 @@ def test(verbose=False):
     for test in [
         create_tables, add_city, add_user,
         add_users, get_user, get_users, 
-        update_user, delete_tables
+        update_user, compare_users,
+        delete_tables
     ]:
         run_test(test)
     print 'Finished running tests.'
