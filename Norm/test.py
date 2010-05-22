@@ -32,13 +32,13 @@ class City(Model):
 class Person(Model):
     id = PrimaryField()
     name = UnicodeField(index=5, length=200)
-    city = ReferenceField(City, null=True)
+    city = ReferenceField(City)
     created = CreatedField()
     updated = TimestampField()
-    address = DictField(null=True)
+    address = DictField()
     email = UnicodeField(length=100, unique=True)
-    age = IntField(index=True)
-    wage = FloatField()
+    age = IntField(index=True, default=40)
+    wage = FloatField(default=3.95)
 
 state = State(name=u'Texas')
 city = City(name=u'Austin')
@@ -112,6 +112,9 @@ def update_user():
     wilbur.city = city2
     wilbur.save()
     
+def update_users():
+    print len(Person.where({'city':city2}).update({'city':city}).run())
+    
 def compare_users():
     wilbur = Person.fetch_one({'name':u'Wilburt'})
     other = Person.fetch_one({'name':u'%s' % 2})
@@ -121,6 +124,9 @@ def compare_users():
 def delete_user():
     wilbur = Person.fetch_one({'name':u'Wilburt'})
     wilbur.delete()
+    
+def delete_users():
+    print len(Person.where({'city':city}).delete().run())
     
 def delete_tables():
     Person.drop_table()
@@ -133,8 +139,8 @@ def test(verbose=False):
     for test in [
         create_tables, add_city, add_user,
         add_users, get_user, get_users, 
-        update_user, compare_users, delete_user,
-        delete_tables
+        update_user, update_users, compare_users, 
+        delete_user, delete_users, delete_tables
     ]:
         run_test(test)
     print 'Finished running tests.'

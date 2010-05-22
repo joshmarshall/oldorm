@@ -23,7 +23,7 @@ class Model(object):
         It then ensures that each Model instance has its own
         Fields for values.
         """
-        assert self.__class__.primary() != None
+        assert self.__class__.get_primary() != None
         for field in self.fields():
             f = object.__getattribute__(self, field)
             instance = f.__class__(*f.args, **f.kwargs)
@@ -68,7 +68,7 @@ class Model(object):
         """
         Simple grab for a single primary value
         """
-        primary = cls.primary()
+        primary = cls.get_primary()
         if isinstance(id_value, cls):
             id_value = getattr(id_value, primary)
         return cls.fetch_one({ primary: id_value })
@@ -164,20 +164,28 @@ class Model(object):
         cursor = connection.execute(sql)
      
     @classmethod   
-    def primary(cls):
+    def get_primary(cls):
         """
         Hunts for the PrimaryField in the attributes.
         TODO: Cache this value so it only hunts once.
         """
-        for f in cls.fields():
-            attr = object.__getattribute__(cls, f)
-            if type(attr) is PrimaryField:
-                return f
+        if not hasattr(cls, '_primary'):
+            for f in cls.fields():
+                attr = object.__getattribute__(cls, f)
+                if type(attr) is PrimaryField:
+                    return f
+            cls._primary = primary
+        return cls._primary
+                
+    @property
+    def primary(self):
+        primary_k = self.__class__.get_primary()
+        return getattr(self, primary_k)
         
     def save(self):
         """
         This is SUPPOSED to be intelligent and insert / update
-        as necessary. :) Not working quite yet.
+        as necessary. :)
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
@@ -190,22 +198,14 @@ class Model(object):
         """
         Updates an existing entry in the table.
         """
-        sets = []
-        values = []
+        values = {}
         for f in self.fields():
             attr = object.__getattribute__(self, f)
-            if attr.auto_value:
-                continue
-            if not attr._updated:
-                continue
-            sets.append(u'%s = %s' % (f, attr.format))
-            values.append(attr._value)
-        set_sql = u'SET %s' % u', '.join(sets)
-        primary_k = self.__class__.primary()
-        primary = object.__getattribute__(self, primary_k)
-        where_sql = u'WHERE %s = %d;' % (primary_k, primary.value)
-        sql = 'UPDATE %s %s %s;' % (self.table(), set_sql, where_sql)
-        cursor = connection.execute(sql, values)
+            if not attr.auto_value and attr._updated:
+                values[f] = getattr(self, f)
+        result = self.where({self.__class__.get_primary():self.primary})
+        return result.update(values)[0]
+        
         
     def insert(self):
         """
@@ -230,7 +230,7 @@ class Model(object):
         values_str = u'VALUES( %s )' % u', '.join(format_values)
         sql = '%s %s %s;' % (sql, keys_str, values_str)
         cursor = connection.execute(sql, values)
-        primary_k = self.__class__.primary()
+        primary_k = self.__class__.get_primary()
         primary = object.__getattribute__(self, primary_k)
         primary.value = connection.connection.insert_id()
         
@@ -238,11 +238,8 @@ class Model(object):
         """
         Deletes the object from the MySQL table.
         """
-        primary_k = self.__class__.primary()
-        primary = object.__getattribute__(self, primary_k)
-        sql = u'DELETE FROM %s' % self.table()
-        sql += u' WHERE %s=%s LIMIT 1;' % (primary_k, '%s');
-        cursor = connection.execute(sql, (primary.value,))
+        result = self.where({self.__class__.get_primary():self.primary})
+        return result.delete()[0]
         
     def __eq__(self, other):
         """
@@ -250,8 +247,7 @@ class Model(object):
         """
         if self.__class__ != other.__class__:
             return False
-        pk = self.__class__.primary()
-        if getattr(self, pk) != getattr(other, pk):
+        if self.primary != other.primary:
             return False
         return True
         

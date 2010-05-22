@@ -44,6 +44,7 @@ class Field(object):
     type = None
     # Auto value is just a flag right now for IDs and TIMESTAMPS
     auto_value = False
+    default = None
     _value = None
     _updated = False
     
@@ -54,6 +55,8 @@ class Field(object):
         """
         for k,v in kwargs.iteritems():
             setattr(self, k, v)
+        if kwargs.has_key('default'):
+            self.set_value(kwargs['default'])
         self.args = args
         self.kwargs = kwargs
         
@@ -267,7 +270,7 @@ class PrimaryField(IntField):
         """
         self.auto_value = kwargs['auto_increment']
             
-        IntField.__init__(self, **kwargs)
+        IntField.__init__(self, *args, **kwargs)
         
     def set_value(self, value):
         if type(value) is types.IntType:
@@ -290,14 +293,11 @@ class ReferenceField(IntField):
     
     def set_value(self, value):
         if value.__class__ is self.ref_model:
-            primary_k = value.primary()
-            primary = object.__getattribute__(value, primary_k)
-            value = primary._value
+            value = value.primary
         IntField.set_value(self, value)
     
     def get_value(self):
         model = self.ref_model
-        primary_k = model.primary()
         if self._value == None:
             return None
         return model.get(self._value)

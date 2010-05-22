@@ -73,6 +73,30 @@ class Results(object):
                 self.order_fields[k] = ASCENDING
         return self
         
+    def delete(self):
+        """
+        This deletes all the entries that match the current conditions.
+        """
+        self.operation = u"DELETE FROM %s" % self.model.table()
+        return self
+        
+    def update(self, set_values={}):
+        """
+        This updates all the entries that match the current conditions,
+        using the dict passed in.
+        """
+        sets = []
+        values = []
+        obj = self.model()
+        for f,v in set_values.iteritems():
+            setattr(obj, f, v)
+            attr = object.__getattribute__(obj, f)
+            sets.append(u'%s = %s' % (f, attr.format))
+            values.append(attr._value)
+        set_sql = u'SET %s' % u', '.join(sets)
+        self.operation = 'UPDATE %s %s' % (self.model.table(), set_sql)
+        self.values = values + self.values
+        return self
         
     def fetch_one(self):
         """
@@ -83,12 +107,22 @@ class Results(object):
             return result
         return None
         
+    def __call__(self):
+        """
+        This executes the behavior without the user needing to iterate.
+        Should only be used with multi-result updates and deletes.
+        """
+        return self.__iter__()
+        
+    run = __call__
+        
     def get_sql(self):
         """
         Parses the values and generates final SQL for execution.
         """
-        select = u"SELECT %s FROM %s" % \
-            (u', '.join(self.fields), self.model.table())
+        if not hasattr(self, 'operation'):
+            self.operation = u"SELECT %s FROM %s" % \
+                (u', '.join(self.fields), self.model.table())
         where = u''
         order = u''
         limit = u''
@@ -100,14 +134,14 @@ class Results(object):
                 self.values.append(v)
             where = u' WHERE %s' % ' AND '.join(where_clauses)
         
-        if len(self.order_fields) > 0:
+        if len(self.order_fields) > 0 and self.operation.startswith('SELECT'):
             order_clauses = []
             for k,v in self.order_fields.iteritems():
                 order_clauses.append(u'%s %s' % (k, v))
             order = u' ORDER BY %s' % ' AND '.join(order_clauses)
         if self.slice.stop != None and self.slice.stop > 0:
             limit = u' LIMIT %d' % self.slice.stop
-        return u'%s%s%s%s;' % (select, where, order, limit)
+        return u'%s%s%s%s;' % (self.operation, where, order, limit)
         
     def __iter__(self):
         """
@@ -128,6 +162,9 @@ class Results(object):
         
         TODO: Implement the "step" part of the slice.
         """
+        
+        if not self.operation.startswith('SELECT'):
+            raise StopIteration
         
         if self.current_row == 0 and self.slice.start != None:
             index = 0
