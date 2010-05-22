@@ -110,6 +110,12 @@ class UnicodeField(Field):
         self.length = kwargs.get('length', None)
         Field.__init__(self, **kwargs)
         
+    def set_value(self, value):
+        if type(value) is types.StringType:
+            # Dangerous assumption?
+            value = unicode(value)
+        Field.set_value(self, value)
+        
     @property
     def field(self):
         if not self.length:
