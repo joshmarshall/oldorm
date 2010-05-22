@@ -97,7 +97,7 @@ def get_user():
         print '%s: %s' % (f, getattr(wilbur, f))
     
 def get_users():
-    people = Person.all()[5:20]
+    people = Person.all().reverse()[5:20]
     i = 0
     for person in people:
         i += 1

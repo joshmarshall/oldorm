@@ -63,9 +63,9 @@ class Results(object):
         """
         if len(self.order_fields) == 0:
             """ Only auto-reversing primary if nothing else specified """
-            if not self.order_fields.has_key(self.model.primary()):
+            if not self.order_fields.has_key(self.model.get_primary()):
                 """ Putting it in so it will be reversed. """
-                self.order_fields[self.model.primary()] = ASCENDING
+                self.order_fields[self.model.get_primary()] = ASCENDING
         for k,v in self.order_fields.iteritems():
             if v == ASCENDING:
                 self.order_fields[k] = DESCENDING
@@ -225,5 +225,5 @@ class Results(object):
         used with ReferenceFields.
         """
         cls = instance.__class__
-        primary = cls.primary()
+        primary = cls.get_primary()
         return { primary: getattr(instance, primary) }
