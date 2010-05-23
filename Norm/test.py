@@ -113,7 +113,7 @@ def update_user():
     wilbur.save()
     
 def update_users():
-    print len(Person.where({'city':city2}).update({'city':city}).run())
+    print len(Person.where({'city':city}).update({'city':city2}).run())
     
 def compare_users():
     wilbur = Person.fetch_one({'name':u'Wilburt'})

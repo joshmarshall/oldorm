@@ -307,3 +307,83 @@ class ReferenceField(IntField):
         if self._value == None:
             return None
         return model.get(self._value)
+
+       
+class ReferenceManyField(object):
+    """
+    This is the object that automatically selects a list
+    of objects that Reference this table.
+    """
+
+    model = None
+    ref_field = None
+    many_field = None
+    _value = None
+  
+  
+    def __init__(self, ref_table, *args, **kwargs):
+        kwargs['ref_table'] = ref_table
+        self.ref_table = ref_table
+        self.args = args
+        self.kwargs = kwargs
+        
+    @property
+    def value(self):
+        if not self._value:
+            self.get_foreign()
+            print self.ref_field, self.model
+            self._value = self.ref_table.where(
+                {self.ref_field:self.model.primary}
+            )
+        return self._value
+  
+    def get_foreign(self):
+        for f in self.ref_table.fields():
+            attr = object.__getattribute__(self.ref_table, f)
+            print f, attr
+            if type(attr) is ReferenceField: 
+                print attr.ref_model, self.model
+                if type(self.model) == attr.ref_model:
+                    self.ref_field = f
+                    break
+                
+class ReferenceManyToManyField(ReferenceManyField):
+    
+    join_table = None
+    join_field = None
+    
+    def __init__(self, ref_table, join_table=None, *args, **kwargs):
+        self.join_table = join_table
+        kwargs['join_table'] = join_table
+        ReferenceManyField.__init__(self, ref_table, *args, **kwargs)
+        
+    @property
+    def value(self):
+        if not self._value:
+            self.get_foreign()
+            print self.ref_field, self.model
+            print self.join_table.get_primary(), self.join_field
+            self._value = self.join_table.where({
+                self.ref_field: self.model.primary,
+                self.join_table.get_primary(): self.join_field
+            })
+        return self._value
+            
+    def get_foreign(self):
+        join_tables = {}
+        for f in self.ref_table.fields():
+            attr = object.__getattribute__(self.ref_table, f)
+            if type(attr) is ReferenceField:
+                if type(self.model) == attr.ref_model:
+                    self.ref_field = attr
+                elif self.join_table:
+                    if attr.ref_model == self.join_table:
+                        self.join_field = attr
+                else:
+                    join_tables[attr.ref_model] = attr
+        if self.join_table and self.join_field:
+            return
+        if len(join_tables) != 1:
+            raise Exception('Could not find / limit to one ReferenceField.')
+        self.join_table = join_tables.keys()[0]
+        self.join_field = join_tables.values()[0]

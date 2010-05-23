@@ -5,6 +5,7 @@ Josh Marshall 2010
 This file contains the Results class.
 """
 from connection import connection, cursor
+from fields import ReferenceField
 import types
 
 ASCENDING = 'ASC';
@@ -27,23 +28,31 @@ class Results(object):
         and adds them to the self.where_fields dict, normalizing
         values as necessary.
         
-        TODO: Add JOIN and ReferenceField WHERE's.
+        TODO: Add JOINs.
         """
         from model import Model
         self.where = u''
         if issubclass(type(limiter), Model):
             limiter = get_model_limiter(limiter)
-        for k,val in limiter.iteritems():
-            if k.startswith('$'):
-                # $lt, $gt, $inc, etc.
-                del limiter[k]
-                continue
-            attr = object.__getattribute__(self.model, k)
-            attr.value = limiter[k]
-            limiter[k] = attr
         self.where_fields = {}
-        for k, v in limiter.iteritems():
-            self.where_fields[k] = v._value
+        for column,value in limiter.iteritems():
+            """
+            The key is the attribute name, the column is either
+            the ReferenceField or the 'table.column' string, and
+            the value is either the ReferenceField or the formatted
+            value from the appropriate model.
+            """
+            if type(column) is not ReferenceField:
+                key = column
+                column = '%s.%s' % (self.model.table(), column)
+            else:
+                key = column.ref_model.get_primary()
+            if type(value) is not ReferenceField:
+                # Formatting value appropriately...
+                attr = object.__getattribute__(self.model, key)
+                attr.value = value
+                value = attr._value
+            self.where_fields[column] = value
         return self
         
     def order(self, column, direction=ASCENDING):
@@ -120,27 +129,52 @@ class Results(object):
         """
         Parses the values and generates final SQL for execution.
         """
-        if not hasattr(self, 'operation'):
-            self.operation = u"SELECT %s FROM %s" % \
-                (u', '.join(self.fields), self.model.table())
+        tables = [self.model.table(),]
         where = u''
         order = u''
         limit = u''
         
+        # WHERE instructions
         if len(self.where_fields) > 0:
             where_clauses = []
-            for k,v in self.where_fields.iteritems():
-                where_clauses.append(u'%s = %s' % (k, u'%s'))
-                self.values.append(v)
+            for key, value in self.where_fields.iteritems():
+                if type(key) is ReferenceField:
+                    ref = key.ref_model
+                    key = u'%s.%s' % (ref.table(), ref.get_primary())
+                    if ref.table() not in tables:
+                        tables.append(ref.table())
+                if type(value) is ReferenceField:
+                    ref = value.ref_model
+                    value = u'%s.%s' % (ref.table(), ref.get_primary())
+                    if ref.table() not in tables:
+                        tables.append(ref.table())
+                else:
+                    # MySQLdb string substitution
+                    self.values.append(value)
+                    value = u'%s'
+                where_clauses.append(u'%s = %s' % (key, value))
             where = u' WHERE %s' % ' AND '.join(where_clauses)
         
-        if len(self.order_fields) > 0 and self.operation.startswith('SELECT'):
+        # ORDER instructions (only will be used for SELECT)
+        if len(self.order_fields):
             order_clauses = []
             for k,v in self.order_fields.iteritems():
                 order_clauses.append(u'%s %s' % (k, v))
             order = u' ORDER BY %s' % ' AND '.join(order_clauses)
+            
+        # LIMIT instructions
         if self.slice.stop != None and self.slice.stop > 0:
             limit = u' LIMIT %d' % self.slice.stop
+            
+        # SELECT statement if operation not set by delete(), insert(), etc.
+        if not hasattr(self, 'operation'):
+            fields = [u'%s.%s' % (self.model.table(), f) for f in self.fields]
+            self.operation = u"SELECT %s FROM %s" % \
+                (u', '.join(fields), u', '.join(tables))
+        else:
+            # No order for DELETE, UPDATE, etc.
+            order = u''
+            
         return u'%s%s%s%s;' % (self.operation, where, order, limit)
         
     def __iter__(self):
@@ -181,7 +215,7 @@ class Results(object):
             stop = self.slice.stop
             if self.slice.stop < 0:
                 stop = self.cursor.rowcount + self.slice.stop
-            if self.current_row > stop:
+            if self.current_row >= stop:
                 raise StopIteration  
         
         result = self.cursor.fetchone()
@@ -201,12 +235,18 @@ class Results(object):
         if type(key) not in [types.SliceType, types.IntType]:
             raise TypeError
         if type(key) is types.IntType:
-            self.slice = slice(key-1, key)
+            self.slice = slice(key, key+1)
             for i in self:
                 return i
         else:
             self.slice = key
             return self
+            
+    def limit(self, stop):
+        """
+        Just a quick wrapper around __getitem__
+        """
+        return self.__getitem__(slice(0, stop))
         
     def __len__(self):
         """

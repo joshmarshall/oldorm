@@ -5,7 +5,7 @@ Josh Marshall 2010
 This file contains the Model class.
 """
 
-from fields import Field, PrimaryField, ReferenceField, PrimaryField
+from fields import Field, PrimaryField, ReferenceField, ReferenceManyField
 from connection import connection
 from results import Results
 import types
@@ -24,7 +24,7 @@ class Model(object):
         Fields for values.
         """
         assert self.__class__.get_primary() != None
-        for field in self.fields():
+        for field in self.fields()+self.tables():
             f = object.__getattribute__(self, field)
             instance = f.__class__(*f.args, **f.kwargs)
             instance.model = self
@@ -81,7 +81,9 @@ class Model(object):
         """
         # Getting the value of the field
         attr = object.__getattribute__(self, attr_k)
-        if issubclass(type(attr), Field):
+        attr_type = type(attr)
+        if issubclass(attr_type, Field) or \
+            issubclass(attr_type, ReferenceManyField):
             return attr.value
         else:
             return attr
@@ -105,22 +107,43 @@ class Model(object):
     def fields(cls):
         """
         A class method that returns all the attributes which
-        are Fields. Sort of kludgy, needs to be cached somewhere.
+        are Fields.
         """
-        fields = []
+        if not hasattr(cls, '_fields'):
+            cls.parse_attributes()
+        return cls._fields
+        
+    @classmethod
+    def tables(cls):
+        """
+        A class method that returns all the attributes which 
+        are ReferenceManyField.
+        """
+        if not hasattr(cls, '_tables'):
+            cls.parse_attributes()
+        return cls._tables
+        
+    @classmethod
+    def parse_attributes(cls):
+        """
+        Kludgy way of determining fields and tables (ReferenceManyField)
+        """
+        cls._fields = []
+        cls._tables = []
         for attr_k in dir(cls):
             try:
                 attr = object.__getattribute__(cls, attr_k)
             except AttributeError:
                 continue
-            if issubclass(attr.__class__, Field):
-                fields.append(attr_k)
-        return fields
+            if issubclass(attr.__class__, ReferenceManyField):
+                cls._tables.append(attr_k)
+            elif issubclass(attr.__class__, Field):
+                cls._fields.append(attr_k)
         
     @classmethod
     def table(cls):
         """
-        Not really sure why I did this. Will pull it out eventually.
+        Is Model.table() more semantic than cls.__name__? I guess...
         """
         return cls.__name__
         
