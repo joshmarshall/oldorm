@@ -32,29 +32,37 @@ goes like this:
     class Company(Model):
         id = PrimaryField()
         name = UnicodeField()
+        state = UnicodeField(length=2, index=True)
 
     class Person(Model):
         id = PrimaryField()
         name = UnicodeField()
         company = ReferenceField(Company)    
 
+    Company.people = ReferenceManyField(Person)
+
     # Verbose prints out the (unescaped) SQL
     connection.connect('mysql://test:test@localhost/test', verbose=True)
 
     Company.create_table()
     corp = Company(name='Awesome Corp')
+    corp.state = u'TX'
     corp.save()
 
     Person.create_table()
     joe = Person()
-    joe.name = 'Joe Weatherston'
+    joe.name = u'Joe Weatherston'
     joe.company = corp
     joe.save()
     
     company = joe.company
-    company.name = 'New Company Name!'
+    company.name = u'New Company Name!'
     company.save()
     
+    for company in Company.where({'name':u'New Company Name!'):
+        for person in company.people.reverse():
+            print person.name
+        
     todd = Person.fetch_one({'name':'Todd'})
 
 ...or at least, that's the idea. Check out the test.py file for detailed
@@ -64,3 +72,5 @@ It's baby, baby code, so don't be too critical. I just needed something simple
 to throw together an idea I had, and this fit the bill. There are a billion 
 things I need to do with it, but again, any ideas are helpful. Although there 
 are hundreds of alternate ORMs that would certainly be more worth your time. :)
+
+I've also dropped the "logo" in the repo -- it's an Inkscape SVG, so have fun.
