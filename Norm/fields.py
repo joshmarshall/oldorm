@@ -132,8 +132,9 @@ class DictField(UnicodeField):
     type = types.DictType
     
     def set_value(self, value):
-        if value == None and not getattr(self, 'null', True):
-            raise TypeError('Column does not allow null values.')
+        if value == None: 
+            if not getattr(self, 'null', True):
+                raise TypeError('Column does not allow null values.')
         elif type(value) != self.type:
             raise TypeError('Value must be of type %s' % self.type)
         json_string = json.dumps(value)
@@ -153,6 +154,11 @@ class ListField(DictField):
     Stores a List in JSON format.
     """
     type = types.ListType
+    
+    def set_value(self, value):
+        if type(value) is tuple:
+            value = list(value)
+        DictField.set_value(self, value)
         
 class FloatField(Field):
     """
