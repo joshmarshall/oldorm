@@ -214,6 +214,7 @@ class Model(object):
             raise Exception('Not connected to the database.')
         if not getattr(self, '_retrieved', False):
             self.insert()
+            self._retrieved = True
         else:
             self.update()
             
@@ -226,6 +227,7 @@ class Model(object):
             attr = object.__getattribute__(self, f)
             if not attr.auto_value and attr._updated:
                 values[f] = getattr(self, f)
+                object.__setattr__(attr, '_updated', False)
         result = self.where({self.__class__.get_primary():self.primary})
         return result.update(values)[0]
         
