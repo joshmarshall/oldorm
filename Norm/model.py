@@ -196,8 +196,9 @@ class Model(object):
             for f in cls.fields():
                 attr = object.__getattribute__(cls, f)
                 if type(attr) is PrimaryField:
+                    cls._primary = f
                     return f
-            cls._primary = primary
+            raise Exception('No PrimaryField set!')
         return cls._primary
                 
     @property
