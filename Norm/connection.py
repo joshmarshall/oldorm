@@ -71,8 +71,7 @@ class Connection(object):
         """
         Simply a wrapper around the MySQLdb execute method        
         """
-        norm_logger = logging.getLogger('Norm')
-        norm_logger.debug(command % tuple(values))
+        self.logger.debug(command % tuple(values))
         cursor = self.connection.cursor()
         cursor.execute(command, values)
         return cursor
