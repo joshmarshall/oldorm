@@ -337,7 +337,6 @@ class ReferenceManyField(object):
     def value(self):
         if not self._value:
             self.get_foreign()
-            print self.ref_field, self.model
             self._value = self.ref_table.where(
                 {self.ref_field:self.model.primary}
             )
@@ -346,9 +345,7 @@ class ReferenceManyField(object):
     def get_foreign(self):
         for f in self.ref_table.fields():
             attr = object.__getattribute__(self.ref_table, f)
-            print f, attr
             if type(attr) is ReferenceField: 
-                print attr.ref_model, self.model
                 if type(self.model) == attr.ref_model:
                     self.ref_field = f
                     break
@@ -367,8 +364,6 @@ class ReferenceManyToManyField(ReferenceManyField):
     def value(self):
         if not self._value:
             self.get_foreign()
-            print self.ref_field, self.model
-            print self.join_table.get_primary(), self.join_field
             self._value = self.join_table.where({
                 self.ref_field: self.model.primary,
                 self.join_table.get_primary(): self.join_field

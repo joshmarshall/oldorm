@@ -7,6 +7,7 @@ This file contains the Connection class.
 
 import re
 import MySQLdb
+import logging
 
 class Connection(object):
     """ 
@@ -34,6 +35,11 @@ class Connection(object):
             use_unicode=True
         )
         self.verbose = verbose
+        log_stderr = logging.StreamHandler()
+        self.logger = logging.getLogger('Norm')
+        self.logger.addHandler(log_stderr)
+        if self.verbose:
+            self.logger.setLevel(logging.DEBUG)
         
     @property
     def connected(self):
@@ -65,8 +71,8 @@ class Connection(object):
         """
         Simply a wrapper around the MySQLdb execute method        
         """
-        if self.verbose:
-            print command % tuple(values)
+        norm_logger = logging.getLogger('Norm')
+        norm_logger.debug(command % tuple(values))
         cursor = self.connection.cursor()
         cursor.execute(command, values)
         return cursor
