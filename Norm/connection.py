@@ -9,6 +9,18 @@ import re
 import MySQLdb
 import logging
 
+"""
+This ensures that the library doesn't throw out a message if
+no logging is specified.
+"""
+
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+        
+norm_logger = logging.getLogger('Norm')
+norm_logger.addHandler(NullHandler())
+
 class Connection(object):
     """ 
     The Connection class is a simple wrapper around the
@@ -35,11 +47,7 @@ class Connection(object):
             use_unicode=True
         )
         self.verbose = verbose
-        log_stderr = logging.StreamHandler()
         self.logger = logging.getLogger('Norm')
-        self.logger.addHandler(log_stderr)
-        if self.verbose:
-            self.logger.setLevel(logging.DEBUG)
         
     @property
     def connected(self):
@@ -71,7 +79,15 @@ class Connection(object):
         """
         Simply a wrapper around the MySQLdb execute method        
         """
-        self.logger.debug(command % tuple(values))
+        log_message = '%s@%s using %s: %s' % (
+            self.user,
+            self.host,
+            self.db,
+            command % tuple(values)
+        )
+        self.logger.debug(log_message)
+        if self.verbose:
+            print log_message
         cursor = self.connection.cursor()
         cursor.execute(command, values)
         return cursor
