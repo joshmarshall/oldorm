@@ -40,7 +40,7 @@ class Connection(object):
         keeps the connection on the object.
         """
         if self.connection:
-            return self.connection
+            return self
         self.get_from_uri(db_uri)
         self.connection = MySQLdb.connect(
             host=self.host,
@@ -119,7 +119,8 @@ class Connection(object):
 connection = Connection()
 
 """ The connect function """
-connect = connection.connect
+def connect(*args, **kwargs): 
+    return connection.connect(*args, **kwargs)
 
 """ The cursor function """
 def cursor():

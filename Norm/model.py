@@ -154,27 +154,43 @@ class Model(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
+        cursor = connection.execute(cls.create_table_sql())
+        cursor.close()
+        
+    @classmethod
+    def create_table_sql(cls):
         sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls.table()
         rows = []
         indexes = {}
+        unique_indexes = {}
         for f in cls.fields():
             field = object.__getattribute__(cls, f)
             params = field.create_syntax()
             row = u'\t%s %s' % (f, params)
             rows.append(row)
             if hasattr(field, 'index') and field.index:
-                indexes[f] = field.index
+                if hasattr(field, 'unique') and field.unique:
+                    unique_indexes[f] = field.index
+                else:
+                    indexes[f] = field.index
         index_strings = []
-        for f,i in indexes.iteritems():
-            if type(i) is types.IntType:
-                index_string = u'%s(%d)' % (f,i)
-            else:
-                index_string = u'%s' % f
-            index_strings.append(index_string)
-        if len(index_strings) > 0:
-            rows.append(u'\tINDEX(%s)' % u', '.join(index_strings))
+        unique_index_strings = []
+        for i_dict, i_strings, i_name in [
+            (indexes, index_strings, 'INDEX'),
+            (unique_indexes, unique_index_strings, 'UNIQUE KEY')
+        ]:
+            for f,i in i_dict.iteritems():
+                if type(i) is types.IntType:
+                    index_string = u'%s(%d)' % (f,i)
+                else:
+                    index_string = u'%s' % f
+                i_strings.append(index_string)
+            if len(i_strings) > 0:
+                rows.append(u'\t%s(%s)' % 
+                    (i_name, u', '.join(i_strings))
+                )
         sql += u'%s\n);' % u',\n'.join(rows)
-        cursor = connection.execute(sql)
+        return sql
         
     @classmethod
     def drop_table(cls):

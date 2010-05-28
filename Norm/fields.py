@@ -91,7 +91,7 @@ class Field(object):
         Generates the column definition for the CREATE TABLE step.
         """
         sql = '%s' % self.field
-        if getattr(self, 'unique', False):
+        if getattr(self, 'unique', False) and not getattr(self, 'index', False):
             sql += ' UNIQUE'
         if not getattr(self, 'null', True):
             sql += ' NOT NULL'
@@ -191,7 +191,7 @@ class IntField(Field):
             sql += ' NOT NULL'
         if getattr(self, 'primary', False):
             sql += ' PRIMARY KEY'
-        if getattr(self, 'unique', False):
+        if getattr(self, 'unique', False) and not getattr(self, 'index', False):
             sql += ' UNIQUE'
         #elif getattr(self, 'foreign_key', False):
         #    sql += ' FOREIGN KEY'
@@ -226,7 +226,7 @@ class BoolField(IntField):
         sql = 'TINYINT(1) UNSIGNED'
         if not getattr(self, 'null', True):
             sql += ' NOT NULL'
-        if getattr(self, 'unique', False):
+        if getattr(self, 'unique', False) and not getattr(self, 'index', False):
             sql += ' UNIQUE'
         return sql
 
@@ -254,7 +254,7 @@ class CreatedField(TimestampField):
     """
     def create_syntax(self):
         sql = TimestampField.create_syntax(self)
-        if getattr(self, 'unique', False):
+        if getattr(self, 'unique', False) and not getattr(self, 'index', False):
             sql += ' UNIQUE'
         sql += ' DEFAULT NOW()'
         return sql
