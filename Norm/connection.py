@@ -32,12 +32,15 @@ class Connection(object):
     port = None
     db = None
     connection = None
+    _cursor = None
     
     def connect(self, db_uri, verbose=False):
         """
         Connects to a database with the given DB URI, and
         keeps the connection on the object.
         """
+        if self.connection:
+            return self.connection
         self.get_from_uri(db_uri)
         self.connection = MySQLdb.connect(
             host=self.host,
@@ -48,6 +51,7 @@ class Connection(object):
         )
         self.verbose = verbose
         self.logger = logging.getLogger('Norm')
+        return self
         
     @property
     def connected(self):
@@ -88,20 +92,28 @@ class Connection(object):
         self.logger.debug(log_message)
         if self.verbose:
             print log_message
-        cursor = self.connection.cursor()
+        cursor = self.cursor
         cursor.execute(command, values)
         return cursor
 
     @property
     def cursor(self):
-        if not self._cursor:
-            self._cursor = self.connection.cursor()
+        if self._cursor:
+            self._cursor.close()
+        self._cursor = self.connection.cursor()
         return self._cursor
         
     def close(self):
         if self.connection:
-            self.connection.cursor.close()
+            if self._cursor:
+                self._cursor.close()
+                self._cursor = None
             self.connection.close()
+            self.connection = None
+            
+    def __del__(self):
+        self.close()
+        
         
 """ The connection singleton. """        
 connection = Connection()
