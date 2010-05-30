@@ -343,8 +343,9 @@ class ReferenceManyField(object):
         return self._value
   
     def get_foreign(self):
-        for f in self.ref_table.fields():
-            attr = object.__getattribute__(self.ref_table, f)
+        table_instance = self.ref_table()
+        for f in table_instance.fields():
+            attr = object.__getattribute__(table_instance, f)
             if type(attr) is ReferenceField: 
                 if type(self.model) == attr.ref_model:
                     self.ref_field = f
@@ -372,8 +373,9 @@ class ReferenceManyToManyField(ReferenceManyField):
             
     def get_foreign(self):
         join_tables = {}
-        for f in self.ref_table.fields():
-            attr = object.__getattribute__(self.ref_table, f)
+        table_instance = self.ref_table()
+        for f in table_instance.fields():
+            attr = object.__getattribute__(table_instance, f)
             if type(attr) is ReferenceField:
                 if type(self.model) == attr.ref_model:
                     self.ref_field = attr

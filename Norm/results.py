@@ -46,7 +46,7 @@ class Results(object):
                 key = column
                 column = '%s.%s' % (self.model.table(), column)
             else:
-                key = column.ref_model.get_primary()
+                key = column.model.get_primary()
             if type(value) is not ReferenceField:
                 # Formatting value appropriately...
                 attr = object.__getattribute__(self.model, key)
@@ -139,13 +139,19 @@ class Results(object):
             where_clauses = []
             for key, value in self.where_fields.iteritems():
                 if type(key) is ReferenceField:
-                    ref = key.ref_model
-                    key = u'%s.%s' % (ref.table(), ref.get_primary())
+                    ref = key.model
+                    for f in ref.fields():
+                        if object.__getattribute__(ref, f) == key:
+                            key = u'%s.%s' % (ref.table(), f)
+                            break
                     if ref.table() not in tables:
                         tables.append(ref.table())
                 if type(value) is ReferenceField:
-                    ref = value.ref_model
-                    value = u'%s.%s' % (ref.table(), ref.get_primary())
+                    ref = value.model
+                    for f in ref.fields():
+                        if object.__getattribute__(ref, f) == value:
+                            value = u'%s.%s' % (ref.table(), f)
+                            break
                     if ref.table() not in tables:
                         tables.append(ref.table())
                 else:
