@@ -122,6 +122,7 @@ class Connection(object):
             
     def __del__(self):
         self.close()
+        object.__del__(self)
                        
 # The connection singleton.
 connection = Connection()  
