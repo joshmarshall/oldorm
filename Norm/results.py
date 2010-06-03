@@ -205,7 +205,7 @@ class Results(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        if not hasattr(self, 'cursor'):
+        if not self.cursor:
             sql = self.get_sql()
             self.cursor = connection.execute(sql, tuple(self.values))
         return self
@@ -275,7 +275,7 @@ class Results(object):
         if __iter__ has already been called -- may need to 
         patch this.
         """
-        if not hasattr(self, 'cursor'):
+        if not self.cursor:
             self.__iter__()
         return self.cursor.rowcount
             
