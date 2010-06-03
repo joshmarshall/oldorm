@@ -5,7 +5,7 @@ Josh Marshall 2010
 This file contains the Model class.
 """
 
-from fields import Field, PrimaryField, ReferenceField, ReferenceManyField
+from fields import Field, PrimaryField, ReferenceManyField
 from connection import connection
 from results import Results
 import types
@@ -25,16 +25,16 @@ class Model(object):
         """
         assert self.__class__.get_primary() != None
         for field in self.fields()+self.tables():
-            f = object.__getattribute__(self, field)
-            instance = f.__class__(*f.args, **f.kwargs)
+            value = object.__getattribute__(self, field)
+            instance = value.__class__(*value.args, **value.kwargs)
             instance.model = self
             object.__setattr__(self, field, instance)
             
-        for key,val in kwargs.iteritems():
+        for key, val in kwargs.iteritems():
             self.__setattr__(key, val)
             
     @classmethod
-    def where(cls, limiter={}):
+    def where(cls, limiter=None):
         """
         Wrapper for the Results.where() method
         """
@@ -49,7 +49,7 @@ class Model(object):
         return cls.where()
             
     @classmethod
-    def __iter__(cls, limiter={}):
+    def __iter__(cls, limiter=None):
         """
         Wrapper for the Results.__iter__() method
         """
@@ -57,7 +57,7 @@ class Model(object):
         return results.__iter__()
         
     @classmethod
-    def fetch_one(cls, limiter={}):
+    def fetch_one(cls, limiter=None):
         """
         Wrapper for the Results.fetch_one() method
         """
@@ -159,31 +159,34 @@ class Model(object):
         
     @classmethod
     def create_table_sql(cls):
+        """
+        Generates the SQL that is used to create the table.
+        """
         sql = u'CREATE TABLE IF NOT EXISTS %s (\n' % cls.table()
         rows = []
         indexes = {}
         unique_indexes = {}
-        for f in cls.fields():
-            field = object.__getattribute__(cls, f)
+        for field in cls.fields():
+            field = object.__getattribute__(cls, field)
             params = field.create_syntax()
-            row = u'\t%s %s' % (f, params)
+            row = u'\t%s %s' % (field, params)
             rows.append(row)
             if hasattr(field, 'index') and field.index:
                 if hasattr(field, 'unique') and field.unique:
-                    unique_indexes[f] = field.index
+                    unique_indexes[field] = field.index
                 else:
-                    indexes[f] = field.index
+                    indexes[field] = field.index
         index_strings = []
         unique_index_strings = []
         for i_dict, i_strings, i_name in [
             (indexes, index_strings, 'INDEX'),
             (unique_indexes, unique_index_strings, 'UNIQUE KEY')
         ]:
-            for f,i in i_dict.iteritems():
-                if type(i) is types.IntType:
-                    index_string = u'%s(%d)' % (f,i)
+            for field, length in i_dict.iteritems():
+                if type(length) is types.IntType:
+                    index_string = u'%s(%d)' % (field, length)
                 else:
-                    index_string = u'%s' % f
+                    index_string = u'%s' % field
                 i_strings.append(index_string)
             if len(i_strings) > 0:
                 rows.append(u'\t%s(%s)' % 
@@ -200,7 +203,7 @@ class Model(object):
         if not connection.connected:
             raise Exception('Not connected to the database.')
         sql = u'DROP TABLE IF EXISTS %s' % cls.table()
-        cursor = connection.execute(sql)
+        connection.execute(sql)
      
     @classmethod   
     def get_primary(cls):
@@ -209,16 +212,19 @@ class Model(object):
         TODO: Cache this value so it only hunts once.
         """
         if not hasattr(cls, '_primary'):
-            for f in cls.fields():
-                attr = object.__getattribute__(cls, f)
+            for field in cls.fields():
+                attr = object.__getattribute__(cls, field)
                 if type(attr) is PrimaryField:
-                    cls._primary = f
-                    return f
+                    cls._primary = field
+                    return field
             raise Exception('No PrimaryField set!')
         return cls._primary
                 
     @property
     def primary(self):
+        """
+        Return the primary value of an instance.
+        """
         primary_k = self.__class__.get_primary()
         return getattr(self, primary_k)
         
@@ -240,10 +246,10 @@ class Model(object):
         Updates an existing entry in the table.
         """
         values = {}
-        for f in self.fields():
-            attr = object.__getattribute__(self, f)
+        for field in self.fields():
+            attr = object.__getattribute__(self, field)
             if not attr.auto_value and attr._updated:
-                values[f] = getattr(self, f)
+                values[field] = getattr(self, field)
                 object.__setattr__(attr, '_updated', False)
         result = self.where({self.__class__.get_primary():self.primary})
         return result.update(values)[0]
@@ -257,21 +263,20 @@ class Model(object):
         using that, so I may need to change this in the future.
         """
         sql = u'INSERT INTO %s' % self.table()
-        fields = self.fields()
         keys = []
         values = []
         format_values = []
-        for f in self.fields():
-            attr = object.__getattribute__(self, f)
+        for field in self.fields():
+            attr = object.__getattribute__(self, field)
             if attr.auto_value:
                 continue
-            keys.append(f)
+            keys.append(field)
             format_values.append(attr.format)
             values.append(attr._value)
         keys_str = u'( %s )' % u', '.join(keys)
         values_str = u'VALUES( %s )' % u', '.join(format_values)
         sql = '%s %s %s;' % (sql, keys_str, values_str)
-        cursor = connection.execute(sql, values)
+        connection.execute(sql, values)
         primary_k = self.__class__.get_primary()
         primary = object.__getattribute__(self, primary_k)
         primary.value = connection.connection.insert_id()

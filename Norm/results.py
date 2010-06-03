@@ -4,14 +4,18 @@ NORM results.py
 Josh Marshall 2010
 This file contains the Results class.
 """
-from connection import connection, cursor
+from connection import connection
 from fields import ReferenceField
 import types
 
-ASCENDING = 'ASC';
-DESCENDING = 'DESC';
+ASCENDING = 'ASC'
+DESCENDING = 'DESC'
 
 class Results(object):
+    """
+    This is the class that collects the query modifiers, generates
+    the sql, and lazily calls the server when iterated over.
+    """
     
     def __init__(self, model):
         self.model = model
@@ -20,9 +24,12 @@ class Results(object):
         self.where_fields = {}
         self.order_fields = {}
         self.current_row = 0
+        self.tables = []
+        self.cursor = None
+        self.operation = None
         self.slice = slice(None, None, None)
     
-    def where(self, limiter={}):
+    def where(self, limiter=None):
         """
         Takes a limiter dict with key=>value relationships,
         and adds them to the self.where_fields dict, normalizing
@@ -30,18 +37,17 @@ class Results(object):
         
         TODO: Add JOINs.
         """
+        if not limiter:
+            limiter = {}
         from model import Model
-        self.where = u''
         if issubclass(type(limiter), Model):
-            limiter = get_model_limiter(limiter)
+            limiter = self.get_model_limiter(limiter)
         self.where_fields = {}
-        for column,value in limiter.iteritems():
-            """
-            The key is the attribute name, the column is either
-            the ReferenceField or the 'table.column' string, and
-            the value is either the ReferenceField or the formatted
-            value from the appropriate model.
-            """
+        for column, value in limiter.iteritems():
+            # The key is the attribute name, the column is either
+            # the ReferenceField or the 'table.column' string, and
+            # the value is either the ReferenceField or the formatted
+            # value from the appropriate model.
             if type(column) is not ReferenceField:
                 key = column
                 column = '%s.%s' % (self.model.table(), column)
@@ -61,7 +67,7 @@ class Results(object):
         field dict. Must be 'ASC' or 'DESC'.
         """
         assert direction in [ASCENDING, DESCENDING]
-        self.order_fields[column] = direction;
+        self.order_fields[column] = direction
         return self
         
     def reverse(self):
@@ -71,15 +77,15 @@ class Results(object):
         it reverses all the ASCENDING to DESCENDING and vice versa.
         """
         if len(self.order_fields) == 0:
-            """ Only auto-reversing primary if nothing else specified """
+            # Only auto-reversing primary if nothing else specified
             if not self.order_fields.has_key(self.model.get_primary()):
-                """ Putting it in so it will be reversed. """
+                # Putting it in so it will be reversed.
                 self.order_fields[self.model.get_primary()] = ASCENDING
-        for k,v in self.order_fields.iteritems():
-            if v == ASCENDING:
-                self.order_fields[k] = DESCENDING
+        for key, value in self.order_fields.iteritems():
+            if value == ASCENDING:
+                self.order_fields[key] = DESCENDING
             else:
-                self.order_fields[k] = ASCENDING
+                self.order_fields[key] = ASCENDING
         return self
         
     def delete(self):
@@ -89,18 +95,20 @@ class Results(object):
         self.operation = u"DELETE FROM %s" % self.model.table()
         return self
         
-    def update(self, set_values={}):
+    def update(self, set_values=None):
         """
         This updates all the entries that match the current conditions,
         using the dict passed in.
         """
+        if not set_values:
+            set_values = {}
         sets = []
         values = []
         obj = self.model()
-        for f,v in set_values.iteritems():
-            setattr(obj, f, v)
-            attr = object.__getattribute__(obj, f)
-            sets.append(u'%s = %s' % (f, attr.format))
+        for field, value in set_values.iteritems():
+            setattr(obj, field, value)
+            attr = object.__getattribute__(obj, field)
+            sets.append(u'%s = %s' % (field, attr.format))
             values.append(attr._value)
         set_sql = u'SET %s' % u', '.join(sets)
         self.operation = 'UPDATE %s %s' % (self.model.table(), set_sql)
@@ -129,7 +137,7 @@ class Results(object):
         """
         Parses the values and generates final SQL for execution.
         """
-        tables = [self.model.table(),]
+        self.tables = [self.model.table(),]
         where = u''
         order = u''
         limit = u''
@@ -138,34 +146,14 @@ class Results(object):
         if len(self.where_fields) > 0:
             where_clauses = []
             for key, value in self.where_fields.iteritems():
-                if type(key) is ReferenceField:
-                    ref = key.model
-                    for f in ref.fields():
-                        if object.__getattribute__(ref, f) == key:
-                            key = u'%s.%s' % (ref.table(), f)
-                            break
-                    if ref.table() not in tables:
-                        tables.append(ref.table())
-                if type(value) is ReferenceField:
-                    ref = value.model
-                    for f in ref.fields():
-                        if object.__getattribute__(ref, f) == value:
-                            value = u'%s.%s' % (ref.table(), f)
-                            break
-                    if ref.table() not in tables:
-                        tables.append(ref.table())
-                else:
-                    # MySQLdb string substitution
-                    self.values.append(value)
-                    value = u'%s'
-                where_clauses.append(u'%s = %s' % (key, value))
+                where_clauses.append(self.get_where_clause(key, value))
             where = u' WHERE %s' % ' AND '.join(where_clauses)
         
         # ORDER instructions (only will be used for SELECT)
         if len(self.order_fields):
             order_clauses = []
-            for k,v in self.order_fields.iteritems():
-                order_clauses.append(u'%s %s' % (k, v))
+            for key, value in self.order_fields.iteritems():
+                order_clauses.append(u'%s %s' % (key, value))
             order = u' ORDER BY %s' % ' AND '.join(order_clauses)
             
         # LIMIT instructions
@@ -173,15 +161,42 @@ class Results(object):
             limit = u' LIMIT %d' % self.slice.stop
             
         # SELECT statement if operation not set by delete(), insert(), etc.
-        if not hasattr(self, 'operation'):
+        if not self.operation:
             fields = [u'%s.%s' % (self.model.table(), f) for f in self.fields]
             self.operation = u"SELECT %s FROM %s" % \
-                (u', '.join(fields), u', '.join(tables))
+                (u', '.join(fields), u', '.join(self.tables))
         else:
             # No order for DELETE, UPDATE, etc.
             order = u''
             
         return u'%s%s%s%s;' % (self.operation, where, order, limit)
+        
+    def get_where_clause(self, key, value):
+        """
+        Takes a key and a value and turns it into an appropriate
+        where clause.
+        """
+        if type(key) is ReferenceField:
+            ref = key.model
+            for field in ref.fields():
+                if object.__getattribute__(ref, field) == key:
+                    key = u'%s.%s' % (ref.table(), field)
+                    break
+            if ref.table() not in self.tables:
+                self.tables.append(ref.table())
+        if type(value) is ReferenceField:
+            ref = value.model
+            for field in ref.fields():
+                if object.__getattribute__(ref, field) == value:
+                    value = u'%s.%s' % (ref.table(), field)
+                    break
+            if ref.table() not in self.tables:
+                self.tables.append(ref.table())
+        else:
+            # MySQLdb string substitution
+            self.values.append(value)
+            value = u'%s'
+        return u'%s = %s' % (key, value)
         
     def __iter__(self):
         """
@@ -261,7 +276,7 @@ class Results(object):
         patch this.
         """
         if not hasattr(self, 'cursor'):
-            results = self.__iter__()
+            self.__iter__()
         return self.cursor.rowcount
             
     def get_model_limiter(self, instance):

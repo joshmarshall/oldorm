@@ -9,14 +9,17 @@ TODO: Add FloatField, BoolField, etc.
 
 import types
 import datetime
-import time
+
 try:
     import json
 except ImportError:
     import simpejson as json
     
 class LateProperty(object):
-    
+    """
+    A helper class that ensures properties from subclasses are 
+    pulled from the proper class.
+    """
     def __init__(self, getter=None, setter=None, deleter=None):
         self.getter = getter
         self.setter = setter
@@ -53,12 +56,13 @@ class Field(object):
         Applies parameters from the arguments, and
         saves the arguments for instance copying.
         """
-        for k,v in kwargs.iteritems():
-            setattr(self, k, v)
+        for key, value in kwargs.iteritems():
+            setattr(self, key, value)
         if kwargs.has_key('default'):
             self.set_value(kwargs['default'])
         self.args = args
         self.kwargs = kwargs
+        self.model = None
         
     def get_value(self):
         """
@@ -118,6 +122,10 @@ class UnicodeField(Field):
         
     @property
     def field(self):
+        """
+        Overwriting the 'field' attribute to determine the
+        column SQL based on length.
+        """
         if not self.length:
             return u'TEXT' 
         elif self.length > 255:
@@ -145,7 +153,7 @@ class DictField(UnicodeField):
             return None
         obj = self._value
         while type(obj) != self.type:
-            """ Doing this because of MySQL escaping?? """
+            # Doing this because of MySQLdb escaping
             obj = json.loads(obj)
         return obj
             
@@ -200,7 +208,9 @@ class IntField(Field):
         return sql
 
 class BoolField(IntField):
-    
+    """
+    Translates True / False values to 0 / 1.
+    """
     type = types.BooleanType
 
     def set_value(self, value):
@@ -230,7 +240,7 @@ class BoolField(IntField):
             sql += ' UNIQUE'
         return sql
 
-""" For wordier fellows. """
+# For wordier fellows.
 IntegerField = IntField
 BooleanField = BoolField
 
@@ -245,7 +255,7 @@ class TimestampField(Field):
     type = datetime.datetime
     field = 'TIMESTAMP'
 
-""" Auto updating field performs like a normal Timestamp. """
+# Auto updating field performs like a normal Timestamp.
 UpdatedField = TimestampField
 
 class CreatedField(TimestampField):
@@ -274,12 +284,9 @@ class PrimaryField(IntField):
         # Keys cannot be / already are indexed.
         if kwargs.has_key('index'):
             del kwargs['index']
-            
-        """
-        If the key is not an auto_increment key, then
-        we set the auto_value to False so that it is
-        INSERTed and UPDATEd.
-        """
+        # If the key is not an auto_increment key, then
+        # we set the auto_value to False so that it is
+        # INSERTed and UPDATEd.
         self.auto_value = kwargs['auto_increment']
             
         IntField.__init__(self, *args, **kwargs)
@@ -296,6 +303,7 @@ class ReferenceField(IntField):
     calls the get method on the foreign model.
     """
     def __init__(self, ref_model, *args, **kwargs):
+        self.ref_model = ref_model
         kwargs['ref_model'] = ref_model
         kwargs['foreign_key'] = True
         kwargs['unsigned'] = True
@@ -335,23 +343,35 @@ class ReferenceManyField(object):
         
     @property
     def value(self):
+        """
+        Retrieves the list of results from the joined table.
+        """
         if not self._value:
             self.get_foreign()
             self._value = self.ref_table.where(
-                {self.ref_field:self.model.primary}
+                { self.ref_field:self.model.primary }
             )
         return self._value
   
     def get_foreign(self):
+        """
+        Looks through the attributes of the reference table to
+        retrieve the local reference and the foreign reference
+        attributes.
+        """
         table_instance = self.ref_table()
-        for f in table_instance.fields():
-            attr = object.__getattribute__(table_instance, f)
+        for field in table_instance.fields():
+            attr = object.__getattribute__(table_instance, field)
             if type(attr) is ReferenceField: 
                 if type(self.model) == attr.ref_model:
-                    self.ref_field = f
+                    self.ref_field = field
                     break
                 
 class ReferenceManyToManyField(ReferenceManyField):
+    """
+    Abstracts the relationship of a ManyToMany intermediary
+    table.
+    """
     
     join_table = None
     join_field = None
@@ -374,8 +394,8 @@ class ReferenceManyToManyField(ReferenceManyField):
     def get_foreign(self):
         join_tables = {}
         table_instance = self.ref_table()
-        for f in table_instance.fields():
-            attr = object.__getattribute__(table_instance, f)
+        for field in table_instance.fields():
+            attr = object.__getattribute__(table_instance, field)
             if type(attr) is ReferenceField:
                 if type(self.model) == attr.ref_model:
                     self.ref_field = attr

@@ -9,12 +9,11 @@ import re
 import MySQLdb
 import logging
 
-"""
-This ensures that the library doesn't throw out a message if
-no logging is specified.
-"""
-
 class NullHandler(logging.Handler):
+    """
+    This ensures that the library doesn't throw out a message if
+    no logging is specified.
+    """
     def emit(self, record):
         pass
         
@@ -26,13 +25,17 @@ class Connection(object):
     The Connection class is a simple wrapper around the
     MySQLdb connection and cursor properties / methods.
     """    
-    host = None
-    user = None
-    password = None
-    port = None
-    db = None
-    connection = None
-    _cursor = None
+    
+    def __init__(self):
+        self.host = None
+        self.user = None
+        self.password = None
+        self.port = None
+        self.db = None
+        self.connection = None
+        self._cursor = None
+        self.verbose = False
+        self.logger = logging.getLogger('Norm')
     
     def connect(self, db_uri, verbose=False):
         """
@@ -50,7 +53,6 @@ class Connection(object):
             use_unicode=True
         )
         self.verbose = verbose
-        self.logger = logging.getLogger('Norm')
         return self
         
     @property
@@ -92,18 +94,25 @@ class Connection(object):
         self.logger.debug(log_message)
         if self.verbose:
             print log_message
-        cursor = self.cursor
-        cursor.execute(command, values)
-        return cursor
+        new_cursor = self.cursor
+        new_cursor.execute(command, values)
+        return new_cursor
 
     @property
     def cursor(self):
+        """
+        Closes an open cursor (if applicable) and returns
+        a new one from the current conneection.
+        """
         if self._cursor:
             self._cursor.close()
         self._cursor = self.connection.cursor()
         return self._cursor
         
     def close(self):
+        """
+        Attemps to close the current connection and cursor.
+        """
         if self.connection:
             if self._cursor:
                 self._cursor.close()
@@ -113,15 +122,14 @@ class Connection(object):
             
     def __del__(self):
         self.close()
-        
-        
-""" The connection singleton. """        
-connection = Connection()
+                       
+# The connection singleton.
+connection = Connection()  
 
-""" The connect function """
-def connect(*args, **kwargs): 
+def connect(*args, **kwargs):
+    """ The connect function """
     return connection.connect(*args, **kwargs)
 
-""" The cursor function """
 def cursor():
+    """ The cursor function """
     return connection.cursor
