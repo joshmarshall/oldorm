@@ -43,7 +43,7 @@ class Connection(object):
         keeps the connection on the object.
         """
         if self.connection:
-            return self
+            self.close()
         self.get_from_uri(db_uri)
         self.connection = MySQLdb.connect(
             host=self.host,
