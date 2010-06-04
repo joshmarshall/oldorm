@@ -13,7 +13,7 @@ import datetime
 try:
     import json
 except ImportError:
-    import simpejson as json
+    import simplejson as json
     
 class LateProperty(object):
     """

@@ -216,6 +216,8 @@ class Results(object):
         a matching object for it.
         
         TODO: Implement the "step" part of the slice.
+        TODO: Implement a mass "DELETE" process which also
+        calls the delete() method for each result.
         """
         
         if not self.operation.startswith('SELECT'):
