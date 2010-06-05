@@ -17,8 +17,8 @@ class NullHandler(logging.Handler):
     def emit(self, record):
         pass
         
-norm_logger = logging.getLogger('Norm')
-norm_logger.addHandler(NullHandler())
+NORM_LOGGER = logging.getLogger('Norm')
+NORM_LOGGER.addHandler(NullHandler())
 
 class Connection(object):
     """ 
@@ -122,7 +122,6 @@ class Connection(object):
             
     def __del__(self):
         self.close()
-        object.__del__(self)
                        
 # The connection singleton.
 connection = Connection()  

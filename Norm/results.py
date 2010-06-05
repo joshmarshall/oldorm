@@ -4,8 +4,8 @@ NORM results.py
 Josh Marshall 2010
 This file contains the Results class.
 """
-from connection import connection
-from fields import ReferenceField
+from Norm.connection import connection
+from Norm.fields import ReferenceField
 import types
 
 ASCENDING = 'ASC'
@@ -39,9 +39,9 @@ class Results(object):
         """
         if not limiter:
             limiter = {}
-        from model import Model
+        from Norm.model import Model
         if issubclass(type(limiter), Model):
-            limiter = self.get_model_limiter(limiter)
+            limiter = get_model_limiter(limiter)
         self.where_fields = {}
         for column, value in limiter.iteritems():
             # The key is the attribute name, the column is either
@@ -281,12 +281,12 @@ class Results(object):
             self.__iter__()
         return self.cursor.rowcount
             
-    def get_model_limiter(self, instance):
-        """
-        Returns a {primary_col:primary_key} for
-        an instance of a different model. Usually
-        used with ReferenceFields.
-        """
-        cls = instance.__class__
-        primary = cls.get_primary()
-        return { primary: getattr(instance, primary) }
+def get_model_limiter(instance):
+    """
+    Returns a {primary_col:primary_key} for
+    an instance of a different model. Usually
+    used with ReferenceFields.
+    """
+    cls = instance.__class__
+    primary = cls.get_primary()
+    return { primary: getattr(instance, primary) }

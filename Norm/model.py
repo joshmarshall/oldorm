@@ -5,9 +5,9 @@ Josh Marshall 2010
 This file contains the Model class.
 """
 
-from fields import Field, PrimaryField, ReferenceManyField
-from connection import connection
-from results import Results
+from Norm.fields import Field, PrimaryField, ReferenceManyField
+from Norm.connection import connection
+from Norm.results import Results
 import types
 
 class Model(object):
@@ -32,6 +32,8 @@ class Model(object):
             
         for key, val in kwargs.iteritems():
             self.__setattr__(key, val)
+            
+        self._retrieved = False
             
     @classmethod
     def where(cls, limiter=None):
@@ -235,7 +237,7 @@ class Model(object):
         """
         if not connection.connected:
             raise Exception('Not connected to the database.')
-        if not getattr(self, '_retrieved', False):
+        if not self._retrieved:
             self.insert()
             self._retrieved = True
         else:
