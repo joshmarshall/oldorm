@@ -168,16 +168,16 @@ class Model(object):
         rows = []
         indexes = {}
         unique_indexes = {}
-        for field in cls.fields():
-            field = object.__getattribute__(cls, field)
+        for field_name in cls.fields():
+            field = object.__getattribute__(cls, field_name)
             params = field.create_syntax()
-            row = u'\t%s %s' % (field, params)
+            row = u'\t%s %s' % (field_name, params)
             rows.append(row)
             if hasattr(field, 'index') and field.index:
                 if hasattr(field, 'unique') and field.unique:
-                    unique_indexes[field] = field.index
+                    unique_indexes[field_name] = field.index
                 else:
-                    indexes[field] = field.index
+                    indexes[field_name] = field.index
         index_strings = []
         unique_index_strings = []
         for i_dict, i_strings, i_name in [
