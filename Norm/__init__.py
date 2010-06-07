@@ -10,4 +10,4 @@ from Norm.fields import PrimaryField, IntField, IntegerField, FloatField
 from Norm.fields import BoolField, BooleanField, ListField, DictField
 from Norm.fields import ReferenceField, ReferenceManyToManyField
 from Norm.fields import TimestampField, UpdatedField, CreatedField
-from Norm.fields import UnicodeField
+from Norm.fields import UnicodeField, ReferenceManyField
