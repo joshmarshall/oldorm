@@ -8,6 +8,7 @@ This file contains the Connection class.
 import re
 import MySQLdb
 import logging
+import traceback
 
 class NullHandler(logging.Handler):
     """
@@ -43,7 +44,12 @@ class Connection(object):
         keeps the connection on the object.
         """
         if self.connection:
-            self.close()
+            # Need to deal with this better...
+            try:
+                self.close()
+            except Exception:
+                self.logger.error("Can't close connection: %s", 
+                    traceback.format_exc().splitlines()[-1])
         self.get_from_uri(db_uri)
         self.connection = MySQLdb.connect(
             host=self.host,
