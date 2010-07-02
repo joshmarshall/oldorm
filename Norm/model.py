@@ -9,6 +9,7 @@ from Norm.fields import Field, PrimaryField, ReferenceManyField
 from Norm.connection import connection
 from Norm.results import Results
 import types
+import logging
 
 class Model(object):
     """
@@ -254,6 +255,9 @@ class Model(object):
                 values[field] = getattr(self, field)
                 object.__setattr__(attr, '_updated', False)
         result = self.where({self.__class__.get_primary():self.primary})
+        if len(self.values) == 0:
+            logging.warning('update() called on model with no changed fields.')
+            return None
         return result.update(values)[0]
         
         
