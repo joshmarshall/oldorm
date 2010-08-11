@@ -56,7 +56,8 @@ class Connection(object):
             user=self.user,
             passwd=self.password,
             db=self.db,
-            use_unicode=True
+            use_unicode=True,
+            charset='utf8'
         )
         self.verbose = verbose
         return self

@@ -195,7 +195,7 @@ class Model(object):
                 rows.append(u'\t%s(%s)' % 
                     (i_name, u', '.join(i_strings))
                 )
-        sql += u'%s\n);' % u',\n'.join(rows)
+        sql += u'%s\n) DEFAULT CHARSET=UTF8;' % u',\n'.join(rows)
         return sql
         
     @classmethod

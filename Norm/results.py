@@ -111,7 +111,7 @@ class Results(object):
             sets.append(u'%s = %s' % (field, attr.format))
             values.append(attr._value)
         set_sql = u'SET %s' % u', '.join(sets)
-        self.operation = 'UPDATE %s %s' % (self.model.table(), set_sql)
+        self.operation = u'UPDATE %s %s' % (self.model.table(), set_sql)
         self.values = values + self.values
         return self
         

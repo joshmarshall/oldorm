@@ -117,7 +117,8 @@ class UnicodeField(Field):
     def set_value(self, value):
         if type(value) is types.StringType:
             # Dangerous assumption?
-            value = unicode(value)
+            if type(value) is not unicode:
+                value = unicode(value)
         Field.set_value(self, value)
         
     @property
